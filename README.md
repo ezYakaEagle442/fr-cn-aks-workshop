@@ -85,6 +85,11 @@ echo "appName is : " $appName
 cluster_name="aks-${appName}-${target_namespace}-101" #aks-<App Name>-<Environment>-<###>
 echo "Cluster name:" $cluster_name
 
+# target : version 1.15.7
+version=$(az aks get-versions -l $location --query 'orchestrators[-4].orchestratorVersion' -o tsv) 
+echo "version is :" $version 
+
+
 ```
 
 ```sh
@@ -104,9 +109,6 @@ echo "Storage name:" $storage_name
 # https://spring-petclinic.github.io/docs/forks.html
 git_url="https://github.com/spring-projects/spring-petclinic.git"
 echo "Project git repo URL : " $git_url 
-
-version=$(az aks get-versions -l $location --query 'orchestrators[-1].orchestratorVersion' -o tsv) 
-echo "version is :" $version 
 
 network_plugin="azure"
 echo "Network Plugin is : " $network_plugin 
@@ -157,16 +159,12 @@ sp_password=$(az ad sp create-for-rbac --name $appName --role contributor --quer
 echo $sp_password > spp.txt
 echo "Service Principal Password saved to ./spp.txt. IMPORTANT Keep your password ..." 
 # sp_password=`cat spp.txt`
-sp_id=$(az ad sp list --all --query "[?appDisplayName=='${appName}'].{appId:appId}" --output tsv)
-#sp_id=$(az ad sp list --show-mine --query "[?appDisplayName=='${appName}'].{appId:appId}" --output tsv)
+#sp_id=$(az ad sp list --all --query "[?appDisplayName=='${appName}'].{appId:appId}" --output tsv)
+sp_id=$(az ad sp list --show-mine --query "[?appDisplayName=='${appName}'].{appId:appId}" --output tsv)
 echo "Service Principal ID:" $sp_id 
 echo $sp_id > spid.txt
 # sp_id=`cat spid.txt`
 az ad sp show --id $sp_id
-
-# Get the id of the service principal configured for AKS
-CLIENT_ID=$(az aks show --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME --query "servicePrincipalProfile.clientId" --output tsv)
-echo "CLIENT_ID:" $CLIENT_ID 
 ```
 
 ### Create RG & Networks
@@ -206,14 +204,17 @@ az aks create --name $cluster_name \
     --nodepool-name  $node_pool_name \
     --verbose \
     --load-balancer-sku standard \
+    --vm-set-type VirtualMachineScaleSets
     # outboundType (public preview target on release) : Addresses SLB configuration to skip setup of public IP addresses and backend pools https://github.com/Azure/azure-rest-api-specs/blob/master/specification/containerservice/resource-manager/Microsoft.ContainerService/stable/2020-01-01/managedClusters.json#L1679
     #--outboundType=userDefinedRouting|loadBalancer
-    --vm-set-type VirtualMachineScaleSets
-
 
 az aks get-credentials --resource-group $rg_name  --name $cluster_name
 kubectl cluster-info
 #kubectl config view
+
+# Get the id of the service principal configured for AKS
+CLIENT_ID=$(az aks show --resource-group $rg_name --name $cluster_name --query "servicePrincipalProfile.clientId" --output tsv)
+echo "CLIENT_ID:" $CLIENT_ID 
 ```
 
 ### Create Namespaces
@@ -246,20 +247,16 @@ kubectl get roles --all-namespaces
 kubectl get serviceaccounts --all-namespaces
 kubectl get rolebindings --all-namespaces
 kubectl get ingresses  --all-namespaces
-
-# Monitor
-az aks enable-addons --resource-group $rg_name --name $cluster_name --addons monitoring
 ```
 
-### Optionnal Play: Play with Kubernetes dashboard
+### Optionnal: Monitor
 ```sh
-# https://docs.microsoft.com/en-us/azure/aks/kubernetes-dashboard
-kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
-az aks browse --resource-group $rg_name --name $cluster_name
+az aks enable-addons --resource-group $rg_name --name $cluster_name --addons monitoring
 ```
 
 ### Optionnal Play: Create Analytics Workspace
 
+Drag&drop deployworkspacetemplate.json file to CloudShell
 ```sh
 # https://docs.microsoft.com/en-us/azure/azure-monitor/learn/quick-create-workspace-cli
 # /!\ ATTENTION : check & modify location in the JSON template from https://docs.microsoft.com/en-us/azure/azure-monitor/learn/quick-create-workspace-cli#create-and-deploy-template
@@ -268,7 +265,8 @@ az aks browse --resource-group $rg_name --name $cluster_name
 # You can upload files to the Azure Cloud Shell by dragging and dropping them
 # You can also do a `curl -o filename.ext https://file-url/filename.ext` to download a file from the internet.
 
-az group deployment create --resource-group $rg_name --name $analytics_workspace_name --template-file $analytics_workspace_template
+az group deployment create --resource-group $rg_name --template-file $analytics_workspace_template --name $analytics_workspace_name --parameters=workspaceName=$analytics_workspace_name
+
 ```
 
 ### Create Azure Container Registry
@@ -283,11 +281,6 @@ echo "ACR registry ID :" $acr_registry_id
 az acr repository list  --name $acr_registry_name # --resource-group $rg_name
 az acr check-health --yes -n $acr_registry_name 
 
-# Configure https://docs.microsoft.com/en-us/azure/container-registry/container-registry-geo-replication#configure-geo-replication
-# https://docs.microsoft.com/en-us/cli/azure/acr/replication?view=azure-cli-latest
-# location from az account list-locations : francecentral | northeurope | westeurope 
-az acr replication create --location westeurope --registry $acr_registry_name --resource-group $rg_name
-						  
 # Create role assignment
 az role assignment create --assignee $sp_id --role acrpull --scope $acr_registry_id
 
@@ -300,7 +293,14 @@ kubectl create secret docker-registry acr-auth \
         --docker-email="youremail@groland.grd" \
         --docker-password="$sp_password"
 
-kubectl get secrets
+kubectl get secrets -n $target_namespace
+```
+### Optionnal Play: Design your Application for HA to support multiple  regions deployment & Enable geo-replication for container images
+```sh
+# Configure https://docs.microsoft.com/en-us/azure/container-registry/container-registry-geo-replication#configure-geo-replication
+# https://docs.microsoft.com/en-us/cli/azure/acr/replication?view=azure-cli-latest
+# location from az account list-locations : francecentral | northeurope | westeurope 
+az acr replication create --location westeurope --registry $acr_registry_name --resource-group $rg_name
 ```
 
 ### Create Docker Image
@@ -309,6 +309,7 @@ kubectl get secrets
 # https://docs.microsoft.com/en-us/azure/container-registry/container-registry-quickstart-task-cli
 git clone $git_url
 cd spring-petclinic
+# build app
 mvn package
 
 # On Azure Zulu JRE located at : /usr/lib/jvm/zulu-8-azure-amd64/
@@ -323,8 +324,7 @@ mvn package
 # https://github.com/microsoft/java/blob/master/docker/alpine/Dockerfile.zulu-8u232-jre
 # Java 8 image : mcr.microsoft.com/java/jdk:8u232-zulu-alpine
 # Java 11 image :  mcr.microsoft.com/java/jre:11u5-zulu-alpine
-#artifact="spring-petclinic-2.1.0.BUILD-SNAPSHOT.jar"
-artifact="spring-petclinic-2.1.0.BUILD-SNAPSHOT.jar"
+artifact="spring-petclinic-2.2.0.BUILD-SNAPSHOT.jar"
 echo -e "FROM mcr.microsoft.com/java/jre:11u5-zulu-alpine\n" \
 "VOLUME /tmp \n" \
 "ADD target/${artifact} app.jar \n" \
@@ -337,13 +337,17 @@ az acr build -t "${docker_server}/spring-petclinic:{{.Run.ID}}" -r $acr_registry
 az acr repository list --name $acr_registry_name # --resource-group $rg_name
 ```
 
-### Test container
+### Create Kubernetes deployment & Test container
+
+
+/!\ IMPORTANT : the container image name is hardcoded and must be replaced, the Run ID was provided at thye end of acr build command: 
+${registryname}.azurecr.io/spring-petclinic:{{.Run.ID}}
+
+Drag & drop file petclinic-deployment.yaml
 
 ```sh
-# az acr run -r $acr_registry_name --cmd "${docker_server}/spring-petclinic:dd4" /dev/null
-# https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos
-
-# /!\ IMPORTANT : the container image name is hardcoded and must be replaced: ${registryname}.azurecr.io/spring-petclinic:{{.Run.ID}}
+# [https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos)
+#az acr run -r $acr_registry_name --cmd "${docker_server}/spring-petclinic:dd4" /dev/null
 kubectl apply -f petclinic-deployment.yaml -n $target_namespace
 kubectl get deployments -n $target_namespace
 kubectl get deployment petclinic -n $target_namespace 
@@ -357,62 +361,84 @@ for pod in $(k get po -n $target_namespace -o=name)
 do
 	k describe $pod | grep -i "Error"
 	k logs $pod | grep -i "Error"
-  k exec $pod -n $target_namespace -- wget http://localhost:8081/manage/health
-  #k exec $pod -n $target_namespace -it -- /bin/sh
+    k exec $pod -n $target_namespace -- wget http://localhost:8081/manage/health
+    # k exec $pod -n $target_namespace -it -- /bin/sh
     # wget http://localhost:8080/manage/health
     # wget http://localhost:8080/manage/info
 done
 
 # kubectl describe pod petclinic-649bdc4d5-964vl -n $target_namespace
 # kubectl logs petclinic-649bdc4d5-964vl -n $target_namespace
-# kubectl exec -ti POD-UID -- /bin/bash
-```
-
-### Create Kubernetes deployment
-```sh
-
+# kubectl  exec -it "POD-UID" -n $target_namespace -- /bin/sh
 ```
 
 ### Create Kubernetes INTERNAL service
+
+Drag & drop filepet clinic-service-cluster-ip.yaml
+
 ```sh
 kubectl apply -f petclinic-service-cluster-ip.yaml -n $target_namespace
-k get svc -n $target_namespace
+k get svc -n $target_namespace -o wide
 
 # Use the command below to retrieve the Cluster-IP of the Service.
-service_ip=$(kubectl get service petclinic-service -n $target_namespace -o jsonpath="{.spec.clusterIP}")
+service_ip=$(kubectl get service petclinic-lb-service -n $target_namespace -o jsonpath="{.spec.clusterIP}")
+kubectl get endpoints petclinic-lb-service -n $target_namespace
+```
+
+### HELM Setup
+Helm version 3 does not come with any repositories predefined, so you’ll need [initialize the stable chart repository](https://v3.helm.sh/docs/intro/quickstart/#initialize-a-helm-chart-repository)
+
+```sh
+kubectl create namespace ingress
+helm version
+helm get -h
+# https://helm.sh/docs/intro/using_helm/
+# You can see which repositories are configured using helm repo list
+helm repo list
+
+# https://hub.helm.sh/charts | https://kubernetes-charts.storage.googleapis.com/
+
+helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+helm search repo
+helm search hub
+helm search repo mongodb
+
+# For HELM v2 only
+#kubectl apply -f helm-rbac.yaml
+#helm init --service-account tiller
+
+helm repo update
+# https://www.nginx.com/products/nginx/kubernetes-ingress-controller
+helm install ingress stable/nginx-ingress --namespace ingress
+helm upgrade --install ingress stable/nginx-ingress --namespace ingress
+ing_ctl_ip=$(kubectl get svc -n ingress ingress-nginx-ingress-controller -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+
+kubectl apply -f petclinic-ingress.yaml -n $target_namespace
+kubectl get ingresses --all-namespaces
+kubectl describe ingress petclinic -n $target_namespace
+
 # All config proiperties ref: sur https://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html 
-echo "Your service is now exposed through a Cluster IP at http://${service_ip}"
-echo "Check Live Probe with Spring Actuator : http://${service_ip}/manage/health"
-curl "http://${service_ip}/manage/health" -i -X GET
+echo "Your service is now exposed through an Ingress Controller at http://${ing_ctl_ip}"
+echo "Check Live Probe with Spring Actuator : http://petclinic.${ing_ctl_ip}.nip.io/manage/health"
+curl "http://petclinic.${ing_ctl_ip}.nip.io/manage/health" -i -X GET
 echo "\n"
 # You should received an UP reply :
 # {
 #  "status" : "UP"
 # }
-echo "Check spring Management Info at http://${service_ip}/manage/info" -i -X GET
-curl "http://${service_ip}/manage/info" -i -X GET
-
-helm repo update
-kubectl apply -f helm-rbac.yaml
-helm init --service-account tiller
-
-helm upgrade --install ingress stable/nginx-ingress --namespace ingress
-kubectl get svc -n ingress ingress-nginx-ingress-controller -o jsonpath="{.status.loadBalancer.ingress[*].ip}"
-
-kubectl apply -f petclinic-ingress.yaml
-kubectl get ingresses  --all-namespaces
-kubectl get ingress 
+echo "Check spring Management Info at http://petclinic.${ing_ctl_ip}.nip.io/manage/info" -i -X GET
+curl "http://petclinic.${ing_ctl_ip}.nip.io/manage/info" -i -X GET
 
 ```
 
 ### Create Kubernetes PUBLIC service (Load Balancer)
 ```sh
 kubectl apply -f petclinic-service-lb.yaml -n $target_namespace
-k get svc -n $target_namespace
+k get svc -n $target_namespace -o wide
 
 # Standard load Balancer Use Case
 # Use the command below to retrieve the External-IP of the Service. Make sure to allow a couple of minutes for the Azure Load Balancer to assign a public IP.
-service_ip=$(kubectl get service petclinic-service -n $target_namespace -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+service_ip=$(kubectl get service petclinic-lb-service -n $target_namespace -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
 # All config proiperties ref: sur https://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html 
 echo "Your service is now exposed through a Cluster IP at http://${service_ip}"
 echo "Check Live Probe with Spring Actuator : http://${service_ip}/manage/health"
@@ -426,6 +452,20 @@ echo "Check spring Management Info at http://${service_ip}/manage/info" -i -X GE
 curl "http://${service_ip}/manage/info" -i -X GET
 ```
 
+### Optionnal Play: Play with Kubernetes dashboard
+```sh
+# https://docs.microsoft.com/en-us/azure/aks/kubernetes-dashboard
+kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
+az aks browse --resource-group $rg_name --name $cluster_name
+```
+
+### Package your application with HELM
+
+### Leverage Kube-cost for cost analysis
+
+### Leverage Kube-Hunter
+
+### Leverage Kube-Bench
 
 ### Configure DNS
 ```sh
@@ -455,4 +495,6 @@ az group delete --name $rg_name
 /!\ IMPORTANT : Decide to keep or delete your service principal
 ```sh
 az ad sp delete --id $sp_id
+rm spp.txt
+rm spid.txt
 ```
