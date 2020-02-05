@@ -345,8 +345,9 @@ ${registryname}.azurecr.io/spring-petclinic:{{.Run.ID}}
 
 Drag & drop file petclinic-deployment.yaml
 
+[https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos)
+
 ```sh
-# [https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos)
 #az acr run -r $acr_registry_name --cmd "${docker_server}/spring-petclinic:dd4" /dev/null
 kubectl apply -f petclinic-deployment.yaml -n $target_namespace
 kubectl get deployments -n $target_namespace
@@ -381,7 +382,7 @@ kubectl apply -f petclinic-service-cluster-ip.yaml -n $target_namespace
 k get svc -n $target_namespace -o wide
 
 # Use the command below to retrieve the Cluster-IP of the Service.
-service_ip=$(kubectl get service petclinic-lb-service -n $target_namespace -o jsonpath="{.spec.clusterIP}")
+service_ip=$(kubectl get service petclinic-internal-service -n $target_namespace -o jsonpath="{.spec.clusterIP}")
 kubectl get endpoints petclinic-lb-service -n $target_namespace
 ```
 
@@ -477,7 +478,7 @@ az aks browse --resource-group $rg_name --name $cluster_name
 
 ```
 
-## Clean-Up
+###  Clean-Up
 ```sh
 az aks delete --name $cluster_name --resource-group $rg_name
 az acr delete --resource-group $rg_name --name $acr_registry_name
@@ -492,7 +493,7 @@ az network dns zone list -g $rg_name
 az group delete --name $rg_name
 ```
 
-/!\ IMPORTANT : Decide to keep or delete your service principal
+**/!\ IMPORTANT** : Decide to keep or delete your service principal
 ```sh
 az ad sp delete --id $sp_id
 rm spp.txt
