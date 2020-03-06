@@ -1,13 +1,19 @@
 # fr-cn-aks-workshop
 Cloud-Native Workshop
 
-
 ## Pre-requisites
+
+You need an Azure subscription. If you do not have one, to get started quickly go to [https://my.visualstudio.com](https://my.visualstudio.com) and log in using your CorpNet login
+
+For MS employees, ask help from the proctor to create your own internal subscription. 
+ 
+Check your subscription at : [https://account.azure.com/subscriptions](https://account.azure.com/subscriptions) 
+then go to [https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade](https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade ) --> remove filter "Show only subscriptions selected in the 
+global subscriptions filter" to see it 
 
 #### Azure Cloud Shell
 
 You can use the Azure Cloud Shell accessible at <https://shell.azure.com> once you login with an Azure subscription.
-
 
 #### Uploading and editing files in Azure Cloud Shell
 
@@ -20,12 +26,13 @@ See also [See also https://docs.microsoft.com/en-us/azure/cloud-adoption-framewo
 
 ### Tools
 
-You can use the Azure Cloud Shell accessible at <https://shell.azure.com> once you login with an Azure subscription. The Azure Cloud Shell has the Azure CLI pre-installed and configured to connect to your Azure subscription as well as `kubectl` and `helm`.
+You can use the Azure Cloud Shell accessible [https://portal.azure.com](https://portal.azure.com) once you login with an Azure subscription. 
+The Azure Cloud Shell has the Azure CLI pre-installed and configured to connect to your Azure subscription as well as `kubectl` and `helm`.
 ```sh
 az --version
 az account list 
 az account show 
-az extension remove --name aks-preview
+# az extension remove --name aks-preview
 # az extension add --name aks-preview
 ```
 
@@ -37,7 +44,7 @@ alias k=kubectl
 complete -F __start_kubectl k
 ```
 
-Optionnaly :
+Optionnaly : If you want to run PowerShell
 ```sh
 alias kn='kubectl config set-context --current --namespace '
 #If you run kubectl in PowerShell ISE , you can also define aliases :
@@ -70,8 +77,10 @@ az login
 
 ### Set-up environment variables
 
-IMPORTANT : your **appName** & **cluster_name** values MUST BE UNIQUE
+<span style="color:red">/!\ IMPORTANT </span> : your **appName** & **cluster_name** values MUST BE UNIQUE
 ```sh
+# snippet sample at : https://github.com/Azure-Samples/openhack-devops-proctor/blob/master/provision-team/provision_aks.sh
+
 # az account list-locations : francecentral | northeurope | westeurope
 location=francecentral 
 echo "location is : " $location 
@@ -92,6 +101,8 @@ echo "version is :" $version
 
 ```
 
+Note: The here under variables are built based on the varibales defined above, you should not need to modify them, just run this snippet
+
 ```sh
 custom_dns="msfrancerocks.fr"
 echo "Custom DNS Zone is : " $custom_dns
@@ -100,13 +111,13 @@ dnz_zone="cloudapp.net" # azurewebsites.net
 echo "DNS Zone is : " $dnz_zone
 
 # Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only
-storage_name="stne""${appName,,}"
+storage_name="stfr""${appName,,}"
 echo "Storage name:" $storage_name
 
 # original sources at https://github.com/spring-projects/spring-petclinic.git then forked to https://github.com/spring-petclinic
-# forks project on your GitHub account
 # https://stackoverflow.com/questions/31939849/spring-boot-default-log-location
 # https://spring-petclinic.github.io/docs/forks.html
+
 git_url="https://github.com/spring-projects/spring-petclinic.git"
 echo "Project git repo URL : " $git_url 
 
@@ -123,7 +134,7 @@ appgwName="ingress-appgw"
 echo "App Gateway name:" $appgwName
 
 # --nodepool-name can contain at most 12 characters. must conform to the following pattern: '^[a-z][a-z0-9]{0,11}$'.
-node_pool_name="devnodepool"
+node_pool_name="pocnodepool"
 echo "Node Pool name:" $node_pool_name
 
 vnet_name="vnet-${appName}"
@@ -254,9 +265,28 @@ kubectl get ingresses  --all-namespaces
 az aks enable-addons --resource-group $rg_name --name $cluster_name --addons monitoring
 ```
 
+### Download files your local machine to be able to drag&drop them to CloudShell window
+
+[https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/deployworkspacetemplate.json](https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/deployworkspacetemplate.json)
+
+[https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-deployment.yaml](https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-deployment.yaml)
+
+[https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-ingress.yaml](https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-ingress.yaml)
+
+[https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-service-cluster-ip.yaml](https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-service-cluster-ip.yaml)
+
+[https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-service-lb.yaml](https://github.com/ezYakaEagle442/fr-cn-aks-workshop/blob/master/petclinic-service-lb.yaml)
+
+Drag&drop the above files to CloudShell and check the files location in CloudShell
+```sh
+pwd
+ls -al *.yaml
+ls -al *.json
+```
+
 ### Optionnal Play: Create Analytics Workspace
 
-Drag&drop deployworkspacetemplate.json file to CloudShell
+
 ```sh
 # https://docs.microsoft.com/en-us/azure/azure-monitor/learn/quick-create-workspace-cli
 # /!\ ATTENTION : check & modify location in the JSON template from https://docs.microsoft.com/en-us/azure/azure-monitor/learn/quick-create-workspace-cli#create-and-deploy-template
@@ -273,7 +303,8 @@ az group deployment create --resource-group $rg_name --template-file $analytics_
 Note: Premium sku is a requirement to enable replication
 
 ```sh
-az acr create --resource-group $rg_name --name $acr_registry_name --sku Premium --location $location
+az acr create --resource-group $rg_name --name $acr_registry_name --sku standard --location $location
+# az acr create --resource-group $rg_name --name $acr_registry_name --sku Premium --location $location
 
 # Get the ACR registry resource id
 acr_registry_id=$(az acr show --name $acr_registry_name --resource-group $rg_name --query "id" --output tsv)
@@ -287,7 +318,7 @@ az role assignment create --assignee $sp_id --role acrpull --scope $acr_registry
 docker_server="$(az acr show --name $acr_registry_name --resource-group $rg_name --query "name" --output tsv)"".azurecr.io"
 echo "Docker server :" $docker_server
 
-kubectl create secret docker-registry acr-auth \
+kubectl -n $target_namespace create secret docker-registry acr-auth \
         --docker-server="$docker_server" \
         --docker-username="$sp_id" \
         --docker-email="youremail@groland.grd" \
@@ -296,11 +327,12 @@ kubectl create secret docker-registry acr-auth \
 kubectl get secrets -n $target_namespace
 ```
 ### Optionnal Play: Design your Application for HA to support multiple  regions deployment & Enable geo-replication for container images
+Note: Premium sku is a requirement to enable replication
 ```sh
 # Configure https://docs.microsoft.com/en-us/azure/container-registry/container-registry-geo-replication#configure-geo-replication
 # https://docs.microsoft.com/en-us/cli/azure/acr/replication?view=azure-cli-latest
 # location from az account list-locations : francecentral | northeurope | westeurope 
-az acr replication create --location westeurope --registry $acr_registry_name --resource-group $rg_name
+az acr replication create --location northeurope --registry $acr_registry_name --resource-group $rg_name
 ```
 
 ### Create Docker Image
@@ -333,22 +365,21 @@ echo -e "FROM mcr.microsoft.com/java/jre:11u5-zulu-alpine\n" \
 "ENTRYPOINT [ \""java\"", \""-Djava.security.egd=file:/dev/./urandom\"", \""-jar\"", \""/app.jar\"" ] \n"\
 > Dockerfile
 
+# other app snippet: https://github.com/microsoft/todo-app-java-on-azure/blob/master/deploy/aks/deployment.yml
+
 az acr build -t "${docker_server}/spring-petclinic:{{.Run.ID}}" -r $acr_registry_name --resource-group $rg_name --file Dockerfile .
 az acr repository list --name $acr_registry_name # --resource-group $rg_name
 ```
 
 ### Create Kubernetes deployment & Test container
 
-
-/!\ IMPORTANT : the container image name is hardcoded and must be replaced, the Run ID was provided at thye end of acr build command: 
-${registryname}.azurecr.io/spring-petclinic:{{.Run.ID}}
-
-Drag & drop file petclinic-deployment.yaml
+<span style="color:red">/!\ IMPORTANT : the container image name is hardcoded and must be replaced, the Run ID was provided at the end of acr build command: 
+${registryname}.azurecr.io/spring-petclinic:{{.Run.ID}}</span>
 
 [https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-helm-repos)
 
 ```sh
-#az acr run -r $acr_registry_name --cmd "${docker_server}/spring-petclinic:dd4" /dev/null
+#az acr run -r $acr_registry_name --cmd "${docker_server}/spring-petclinic:dd2" /dev/null
 kubectl apply -f petclinic-deployment.yaml -n $target_namespace
 kubectl get deployments -n $target_namespace
 kubectl get deployment petclinic -n $target_namespace 
@@ -358,24 +389,24 @@ kubectl get pods -l app=petclinic -o yaml -n $target_namespace | grep podIP
 # check eventual errors:
 k get events -n $target_namespace | grep -i "Error"
 
+```
+If there were no errors, you can skip the snippet below. In case of error, use the snippet below to found the error
+```sh
 for pod in $(k get po -n $target_namespace -o=name)
 do
 	k describe $pod | grep -i "Error"
 	k logs $pod | grep -i "Error"
-    k exec $pod -n $target_namespace -- wget http://localhost:8081/manage/health
+    k exec $pod -n $target_namespace -- wget http://localhost:8080/manage/health
+    k exec $pod -n $target_namespace -- wget http://localhost:8080/manage/info
     # k exec $pod -n $target_namespace -it -- /bin/sh
-    # wget http://localhost:8080/manage/health
-    # wget http://localhost:8080/manage/info
 done
 
-# kubectl describe pod petclinic-649bdc4d5-964vl -n $target_namespace
-# kubectl logs petclinic-649bdc4d5-964vl -n $target_namespace
+# kubectl describe pod petclinic-YOUR-POD-ID -n $target_namespace
+# kubectl logs petclinic-YOUR-POD-ID -n $target_namespace
 # kubectl  exec -it "POD-UID" -n $target_namespace -- /bin/sh
 ```
 
 ### Create Kubernetes INTERNAL service
-
-Drag & drop filepet clinic-service-cluster-ip.yaml
 
 ```sh
 kubectl apply -f petclinic-service-cluster-ip.yaml -n $target_namespace
@@ -397,16 +428,11 @@ helm get -h
 # You can see which repositories are configured using helm repo list
 helm repo list
 
-# https://hub.helm.sh/charts | https://kubernetes-charts.storage.googleapis.com/
-
+# Init default repo: https://hub.helm.sh/charts | https://kubernetes-charts.storage.googleapis.com/
 helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 helm search repo
 helm search hub
 helm search repo mongodb
-
-# For HELM v2 only
-#kubectl apply -f helm-rbac.yaml
-#helm init --service-account tiller
 
 helm repo update
 # https://www.nginx.com/products/nginx/kubernetes-ingress-controller
@@ -422,7 +448,8 @@ kubectl describe ingress petclinic -n $target_namespace
 echo "Your service is now exposed through an Ingress Controller at http://${ing_ctl_ip}"
 echo "Check Live Probe with Spring Actuator : http://petclinic.${ing_ctl_ip}.nip.io/manage/health"
 curl "http://petclinic.${ing_ctl_ip}.nip.io/manage/health" -i -X GET
-echo "\n"
+echo ""
+echo ""
 # You should received an UP reply :
 # {
 #  "status" : "UP"
@@ -459,23 +486,160 @@ curl "http://${service_ip}/manage/info" -i -X GET
 kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
 az aks browse --resource-group $rg_name --name $cluster_name
 ```
+### Leverage Kube-Advisor
+```sh
+# https://docs.microsoft.com/en-us/azure/aks/developer-best-practices-resource-management#regularly-check-for-application-issues-with-kube-advisor
+kubectl run --rm -i -t kube-advisor --image=mcr.microsoft.com/aks/kubeadvisor --restart=Never
 
-### Package your application with HELM
+kubectl run --rm -i -t kube-advisor --image=mcr.microsoft.com/aks/kubeadvisor --restart=Never --overrides="{ \"apiVersion\": \"v1\", \"spec\": { \"serviceAccountName\": \"kube-advisor\" } }"
+```
 
 ### Leverage Kube-cost for cost analysis
+```sh
+
+```
 
 ### Leverage Kube-Hunter
+```sh
+
+```
 
 ### Leverage Kube-Bench
+```sh
+
+```
+### Package your application with HELM
+```sh
+
+```
+
+
 
 ### Configure DNS
+
+Free DNS: http://xip.io , https://nip.io, https://freedns.afraid.org, https://dyn.com/dns
 ```sh
+$custom_dns
+#service_ip=$(kubectl get service petclinic-lb-service -n $target_namespace -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+service_ip=$(kubectl get svc -n ingress ingress-nginx-ingress-controller -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+echo $service_ip
+
+# https://docs.microsoft.com/en-us/cli/azure/network/public-ip?view=azure-cli-latest
+# Get the resource-id of the public ip
+managed_rg="mc_$rg_name"_"$cluster_name""_""$location"
+echo $managed_rg
+
+public_ip_id=$(az network public-ip list --subscription $subId --resource-group $managed_rg --query "[?ipAddress!=null]|[?contains(ipAddress, '$service_ip')].[id]" --output tsv)
+echo $public_ip_id
+
+In the Azure portal, go to All services / Public IP addresses / kubernetes-xxxx - Configuration ( the Ingress Controller IP) , then there is a field "DNS name label (optional)" ==> An "A record" that starts with the specified label and resolves to this public IP address will be registered with the Azure-provided DNS servers. Example: mylabel.westus.cloudapp.azure.com.
+
+az network public-ip show --ids $public_ip_id --subscription $subId --resource-group $managed_rg
+
+az network public-ip update --ids $public_ip_id --dns-name $dnz_zone --subscription $subId --resource-group $managed_rg
+
+#http://petclinic.francecentral.cloudapp.azure.com
+#http://petclinic.internal.cloudapp.net
+
+#http://petclinic.kissmyapp.francecentral.cloudapp.azure.com/ 
+dnz_zone="kissmyapp.francecentral.cloudapp.azure.com" 
+az network dns zone create -g $rg_name -n $dnz_zone
+az network dns zone list -g $rg_name
+az network dns record-set a add-record -g $rg_name -z $dnz_zone -n www -a ${service_ip}
+az network dns record-set list -g $rg_name -z $dnz_zone
+
+az network dns record-set cname create -g $rg_name -z $dnz_zone -n petclinic-ingress
+az network dns record-set cname set-record -g $rg_name -z $dnz_zone -n petclinic-ingress -c www.$dnz_zone
+az network dns record-set cname show -g $rg_name -z $dnz_zone -n petclinic-ingress
+http://petclinic-ingress.kissmyapp.francecentral.cloudapp.azure.com/ 
 
 ```
 
 ### Monitoring
 ```sh
 
+```
+
+### Security
+
+#### Define API server authorized IP ranges
+```sh
+# https://github.com/palma21/secureaks#define-api-server-authorized-ip-ranges
+
+```
+
+
+#### AKS private cluster 
+```sh
+
+```
+#### Enabling Master logs - view Kubelet logs
+```sh
+
+```
+#### Private  Application Gateway & Application Gateway Ingress Controller with private IP for Ingress endpoint internal routing
+
+```sh
+# https://github.com/palma21/secureaks#setup-app-gateway-ingress-controller
+
+```
+#### AKS Network Policies: Secure your Kubernetes workloads with virtual network and policy-driven communication paths between resources
+```sh
+
+```
+
+#### Filter inbound traffic flows on API Server & Filter outbound traffic flows with Egress lockdown
+
+##### Create Azure Firewall
+```sh
+# https://github.com/palma21/secureaks#creating-azure-firewall
+```
+#### Service-Mesh : Istio & Linkerd
+```sh
+
+```
+#### Azure Policy with Open Policy Agent / Gatekeeper V3
+```sh
+
+```
+
+#### AKS Periscope
+```sh
+
+```
+#### Monitoring and Logging
+```sh
+
+```
+#### SOC/SIEM integration
+```sh
+
+```
+
+
+### Azure Security Center 
+
+#### Container security in Security Center
+```sh
+
+```
+#### Threat detection for Azure containers
+```sh
+
+```
+#### Azure Kubernetes Service integration with Security Center
+```sh
+
+```
+#### Azure Container Registry integration with Security Center
+```sh
+
+```
+
+### IaC with terraform
+```sh
+# https://github.com/squasta/AzureKubernetesService-Terraform/blob/master/myconf.tfvars
+# https://github.com/rhummelmose/aks-commander
 ```
 
 ###  Clean-Up
@@ -493,7 +657,7 @@ az network dns zone list -g $rg_name
 az group delete --name $rg_name
 ```
 
-**/!\ IMPORTANT** : Decide to keep or delete your service principal
+<span style="color:red">**/!\ IMPORTANT** </span> : Decide to keep or delete your service principal
 ```sh
 az ad sp delete --id $sp_id
 rm spp.txt
