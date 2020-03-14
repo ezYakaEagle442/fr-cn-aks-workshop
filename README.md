@@ -559,6 +559,10 @@ http://petclinic-ingress.kissmyapp.francecentral.cloudapp.azure.com/
 ```sh
 
 ```
+### Azure Arc
+```sh
+# https://github.com/Azure/azure-arc-kubernetes-preview
+```
 
 ### Security
 
