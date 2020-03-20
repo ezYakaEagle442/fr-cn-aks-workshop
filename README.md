@@ -107,8 +107,8 @@ Note: The here under variables are built based on the varibales defined above, y
 custom_dns="msfrancerocks.fr"
 echo "Custom DNS Zone is : " $custom_dns
 
-dnz_zone="cloudapp.net" # azurewebsites.net 
-echo "DNS Zone is : " $dnz_zone
+dns_zone="cloudapp.net" # azurewebsites.net 
+echo "DNS Zone is : " $dns_zone
 
 # Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only
 storage_name="stfr""${appName,,}"
@@ -536,21 +536,21 @@ In the Azure portal, go to All services / Public IP addresses / kubernetes-xxxx 
 
 az network public-ip show --ids $public_ip_id --subscription $subId --resource-group $managed_rg
 
-az network public-ip update --ids $public_ip_id --dns-name $dnz_zone --subscription $subId --resource-group $managed_rg
+az network public-ip update --ids $public_ip_id --dns-name $dns_zone --subscription $subId --resource-group $managed_rg
 
 #http://petclinic.francecentral.cloudapp.azure.com
 #http://petclinic.internal.cloudapp.net
 
 #http://petclinic.kissmyapp.francecentral.cloudapp.azure.com/ 
-dnz_zone="kissmyapp.francecentral.cloudapp.azure.com" 
-az network dns zone create -g $rg_name -n $dnz_zone
+dns_zone="kissmyapp.francecentral.cloudapp.azure.com" 
+az network dns zone create -g $rg_name -n $dns_zone
 az network dns zone list -g $rg_name
-az network dns record-set a add-record -g $rg_name -z $dnz_zone -n www -a ${service_ip}
-az network dns record-set list -g $rg_name -z $dnz_zone
+az network dns record-set a add-record -g $rg_name -z $dns_zone -n www -a ${service_ip}
+az network dns record-set list -g $rg_name -z $dns_zone
 
-az network dns record-set cname create -g $rg_name -z $dnz_zone -n petclinic-ingress
-az network dns record-set cname set-record -g $rg_name -z $dnz_zone -n petclinic-ingress -c www.$dnz_zone
-az network dns record-set cname show -g $rg_name -z $dnz_zone -n petclinic-ingress
+az network dns record-set cname create -g $rg_name -z $dns_zone -n petclinic-ingress
+az network dns record-set cname set-record -g $rg_name -z $dns_zone -n petclinic-ingress -c www.$dns_zone
+az network dns record-set cname show -g $rg_name -z $dns_zone -n petclinic-ingress
 http://petclinic-ingress.kissmyapp.francecentral.cloudapp.azure.com/ 
 
 ```
@@ -655,8 +655,8 @@ az network vnet delete --name $vnet_name --resource-group $rg_name --location $l
 az network vnet subnet delete --name $subnet_name --vnet-name $vnet_name --resource-group $rg_name 
 az network route-table route delete -g  $rg_name --route-table-name $route_table -n $route
 az network route-table delete -g  $rg_name -n $route_table
-az network dns record-set a delete -g $rg_name -z $dnz_zone -n www 
-az network dns zone delete -g $rg_name -n $dnz_zone
+az network dns record-set a delete -g $rg_name -z $dns_zone -n www 
+az network dns zone delete -g $rg_name -n $dns_zone
 az network dns zone list -g $rg_name
 az group delete --name $rg_name
 ```
