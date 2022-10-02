@@ -78,6 +78,7 @@ az login
 ### Set-up environment variables
 
 <span style="color:red">/!\ IMPORTANT </span> : your **appName** & **cluster_name** values MUST BE UNIQUE
+
 ```sh
 # snippet sample at : https://github.com/Azure-Samples/openhack-devops-proctor/blob/master/provision-team/provision_aks.sh
 
